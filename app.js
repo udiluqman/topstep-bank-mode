@@ -22,6 +22,108 @@ const CFG = {
     targetPts: 9.0    // +$450
   },
 
+// ============================
+// Decision Engine (interactive)
+// ============================
+
+function nowInTradeWindowET() {
+  // trade window: 09:45 → 10:30 ET (from your reminders)
+  const start = nextETOccurrence(9, 45);
+  const stop  = nextETOccurrence(10, 30);
+
+  // If we're before today's 09:45 ET, nextETOccurrence returns today 09:45.
+  // If we're after, it returns next weekday 09:45. We want "today’s window"
+  // relative to current time, so we compute today's ET window explicitly.
+
+  const tz = "America/New_York";
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+  });
+  const now = new Date();
+  const p = Object.fromEntries(fmt.formatToParts(now).map(x=>[x.type,x.value]));
+  const y = parseInt(p.year,10), m = parseInt(p.month,10), d = parseInt(p.day,10);
+
+  // Convert ET wall clock to instant (use same method as nextETOccurrence does)
+  const startToday = (function etToInstant(y,m,d,h,min){
+    const fmt2 = fmt;
+    let guess = new Date(Date.UTC(y, m-1, d, h, min, 0));
+    for(let i=0;i<6;i++){
+      const q = Object.fromEntries(fmt2.formatToParts(guess).map(x=>[x.type,x.value]));
+      const gy=parseInt(q.year,10), gm=parseInt(q.month,10), gd=parseInt(q.day,10);
+      const gh=parseInt(q.hour,10), gmin=parseInt(q.minute,10);
+      const diff = (y-gy)*525600 + (m-gm)*43200 + (d-gd)*1440 + (h-gh)*60 + (min-gmin);
+      guess = new Date(guess.getTime() + diff*60000);
+      if(diff===0) break;
+    }
+    return guess;
+  })(y,m,d,9,45);
+
+  const stopToday = (function etToInstant(y,m,d,h,min){
+    const fmt2 = fmt;
+    let guess = new Date(Date.UTC(y, m-1, d, h, min, 0));
+    for(let i=0;i<6;i++){
+      const q = Object.fromEntries(fmt2.formatToParts(guess).map(x=>[x.type,x.value]));
+      const gy=parseInt(q.year,10), gm=parseInt(q.month,10), gd=parseInt(q.day,10);
+      const gh=parseInt(q.hour,10), gmin=parseInt(q.minute,10);
+      const diff = (y-gy)*525600 + (m-gm)*43200 + (d-gd)*1440 + (h-gh)*60 + (min-gmin);
+      guess = new Date(guess.getTime() + diff*60000);
+      if(diff===0) break;
+    }
+    return guess;
+  })(y,m,d,10,30);
+
+  return { inWindow: now >= startToday && now <= stopToday, startToday, stopToday };
+}
+
+function decisionApproved() {
+  const ttd = tradesTodayCount();
+  const panicToday = state.panic.active && state.panic.date === todayStr();
+  const w = nowInTradeWindowET().inWindow;
+
+  const pre = state.meta.pre || {};
+  const required = [
+    pre.tradeToday === true,
+    pre.oneTradeOnly === true,
+    pre.platformReady === true,
+    pre.vwapOk === true,
+    pre.noNewsRisk === true,
+    pre.calm === true
+  ];
+
+  const preOk = required.every(Boolean);
+
+  // Approved = pre-ok + not panic + not traded yet + within window
+  return {
+    preOk,
+    approved: preOk && !panicToday && ttd < 1 && w,
+    reasons: {
+      panicToday,
+      alreadyTraded: ttd >= 1,
+      inWindow: w
+    }
+  };
+}
+
+function setPre(key, val){
+  state.meta.pre = state.meta.pre || {};
+  state.meta.pre[key] = val;
+  saveState();
+  render(route());
+}
+
+function setExec(key, val){
+  state.meta.exec = state.meta.exec || {};
+  state.meta.exec[key] = val;
+  saveState();
+  render(route());
+}
+
+function resetExec(){
+  state.meta.exec = { closedInsideOR:false, cleanBody:false };
+  saveState();
+}
+  
   // Monthly withdrawal goal
   withdrawalGoal: 500,
 
