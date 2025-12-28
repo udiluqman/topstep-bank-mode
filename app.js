@@ -188,12 +188,33 @@ function loadState() {
     return JSON.parse(localStorage.getItem(LS_KEY)) || {
       log: [],
       panic: { active:false, note:"", date:"" },
-      meta: { accounts: 1 } // number of $100K accounts you're running
-    };
-  } catch {
-    return { log: [], panic: { active:false, note:"", date:"" }, meta:{ accounts: 1 } };
-  }
+      meta: {
+  accounts: 1,
+  pre: {
+    tradeToday: true,
+    oneTradeOnly: true,
+    platformReady: true,
+    vwapOk: true,
+    noNewsRisk: true,
+    calm: true
+  },
+  exec: { closedInsideOR:false, cleanBody:false }
 }
+;
+  } catch {
+    return { log: [], panic: { active:false, note:"", date:"" }, meta: {
+  accounts: 1,
+  pre: {
+    tradeToday: true,
+    oneTradeOnly: true,
+    platformReady: true,
+    vwapOk: true,
+    noNewsRisk: true,
+    calm: true
+  },
+  exec: { closedInsideOR:false, cleanBody:false }
+}
+
 function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -438,6 +459,7 @@ function render(view){
   if(view==="newtrade") return app.innerHTML = pageNewTrade();
   if(view==="scale") return app.innerHTML = pageScale();
   if(view==="settings") return app.innerHTML = pageSettings();
+  if(view==="execute") return app.innerHTML = pageExecute();
 
   const b = CFG.bracket;
   const nextTimes = CFG.remindersET.map(r=>{
@@ -537,27 +559,112 @@ function pageSOP(){
 }
 
 function pageDecision(){
+  state.meta.pre = state.meta.pre || {};
+  const pre = state.meta.pre;
+
+  const win = nowInTradeWindowET();
+  const d = decisionApproved();
+
+  const verdict = d.approved
+    ? `<div class="pill" style="border-color:rgba(95,141,78,.35);background:rgba(95,141,78,.10);color:#5F8D4E;"><b>✅ APPROVED</b> — when alert fires, execute fast</div>`
+    : `<div class="pill" style="border-color:rgba(180,83,83,.35);background:rgba(180,83,83,.10);color:#B45353;"><b>⛔ NO TRADE</b> — protect the account</div>`;
+
+  const windowLine = `<div class="muted">Trade window (ET): <b>09:45–10:30</b> · Your time: <b>${win.startToday.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}–${win.stopToday.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</b> · Now: <b>${win.inWindow ? "IN WINDOW" : "OUTSIDE"}</b></div>`;
+
   return `
     <div class="card">
-      <h1>Decision Tree (Trade / Skip)</h1>
+      <h1>Decision</h1>
+      <div class="muted">You decide slowly now, so you can execute instantly later.</div>
       <hr/>
-      <h3>If NO alert</h3>
-      <ul><li><b>SKIP</b>. No trade = success.</li></ul>
+      ${windowLine}
+      <div style="margin-top:10px;">${verdict}</div>
+    </div>
+
+    <div class="card">
+      <h2>Pre-Approval (do once before session)</h2>
+      <div class="muted">If these are true, the alert becomes “permission”, not “debate”.</div>
       <hr/>
-      <h3>If alert fires → checklist</h3>
-      <ol>
-        <li>Inside your trade window? If no → <b>SKIP</b></li>
-        <li>Candle CLOSED back inside OR? If no → <b>SKIP</b></li>
-        <li>Strong candle body (not doji)? If no → <b>SKIP</b></li>
-        <li>VWAP aligned? If no → <b>SKIP</b></li>
-        <li>Protect Account mode active today? If yes → <b>SKIP</b></li>
-        <li>Already traded today? If yes → <b>SKIP</b></li>
-        <li>All yes → <b>TAKE TRADE</b> then stop for the day.</li>
-      </ol>
+
+      ${checkboxRow("I am trading today (otherwise I ignore all alerts)", "tradeToday", pre.tradeToday)}
+      ${checkboxRow("I accept 1 trade only (win or loss, I stop)", "oneTradeOnly", pre.oneTradeOnly)}
+      ${checkboxRow("TopstepX + TradingView ready (logged in, data ok)", "platformReady", pre.platformReady)}
+      ${checkboxRow("VWAP context is acceptable today", "vwapOk", pre.vwapOk)}
+      ${checkboxRow("No major news risk for my window", "noNewsRisk", pre.noNewsRisk)}
+      ${checkboxRow("I feel calm / not rushed (otherwise stand down)", "calm", pre.calm)}
+
+      <div class="muted" style="margin-top:10px;">
+        Auto blocks: Protect Account mode, already traded today, outside window.
+      </div>
+
       <div class="row" style="margin-top:12px;">
         <a class="btn" href="#">Home</a>
         <a class="btn btn-danger" href="#panic">Protect Account</a>
+        <a class="btn" href="#execute" onclick="resetExec()">Alert Fired → Execute</a>
       </div>
+    </div>
+  `;
+}
+
+function pageExecute(){
+  state.meta.exec = state.meta.exec || { closedInsideOR:false, cleanBody:false };
+  const ex = state.meta.exec;
+
+  const d = decisionApproved();
+  const canExecute = d.approved;
+
+  const verdict = !canExecute
+    ? `<div class="pill" style="border-color:rgba(180,83,83,.35);background:rgba(180,83,83,.10);color:#B45353;">
+         <b>⛔ DO NOT TRADE</b> — not pre-approved / blocked today
+       </div>`
+    : (ex.closedInsideOR && ex.cleanBody)
+      ? `<div class="pill" style="border-color:rgba(95,141,78,.35);background:rgba(95,141,78,.10);color:#5F8D4E;">
+           <b>✅ TAKE TRADE</b> — place bracket immediately
+         </div>`
+      : `<div class="pill"><b>⚡ EXECUTE CHECK</b> — 2 quick confirmations</div>`;
+
+  return `
+    <div class="card">
+      <h1>Execute (Alert Fired)</h1>
+      <div class="muted">Two taps. No thinking. If both true → enter.</div>
+      <hr/>
+      ${verdict}
+      <hr/>
+
+      <h3>Fast checks</h3>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn ${ex.closedInsideOR?'btn-good':''}" onclick="setExec('closedInsideOR', ${!ex.closedInsideOR})" ${!canExecute?'disabled':''}>
+          ${ex.closedInsideOR ? "✓" : "○"} Closed back inside OR
+        </button>
+
+        <button class="btn ${ex.cleanBody?'btn-good':''}" onclick="setExec('cleanBody', ${!ex.cleanBody})" ${!canExecute?'disabled':''}>
+          ${ex.cleanBody ? "✓" : "○"} Clean body (not doji)
+        </button>
+      </div>
+
+      <hr/>
+      <h3>Bracket (locked)</h3>
+      <ul>
+        <li><b>${CFG.bracket.contracts} ES</b></li>
+        <li>Stop: <b>${CFG.bracket.stopPts.toFixed(1)} pts</b> (≈ -$${(CFG.bracket.stopPts*50).toFixed(0)})</li>
+        <li>Target: <b>${CFG.bracket.targetPts.toFixed(1)} pts</b> (≈ +$${(CFG.bracket.targetPts*50).toFixed(0)})</li>
+      </ul>
+
+      <div class="row" style="margin-top:12px;">
+        <a class="btn" href="#decision">Back</a>
+        <a class="btn" href="#newtrade">Log after trade</a>
+        <button class="btn btn-danger" onclick="resetExec(); location.hash='#decision';">Skip & Reset</button>
+      </div>
+    </div>
+  `;
+}
+    
+function checkboxRow(label, key, checked){
+  const id = `pre_${key}`;
+  return `
+    <div style="display:flex;gap:10px;align-items:flex-start;margin:10px 0;">
+      <input type="checkbox" id="${id}" ${checked ? "checked":""}
+        onchange="setPre('${key}', this.checked)" style="width:22px;height:22px;margin-top:2px;">
+      <label for="${id}" style="font-weight:800;flex:1;">${label}</label>
     </div>
   `;
 }
