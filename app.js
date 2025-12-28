@@ -321,7 +321,7 @@ function render(view){
   const { pnl, prog, goal, pct } = monthWithdrawalProgress();
 
   const warnings = [];
-  if(state.panic.active && state.panic.date === todayStr()) warnings.push("PANIC MODE active today → SKIP everything.");
+  if(state.panic.active && state.panic.date === todayStr()) warnings.push("Protect Account mode active → No trades today.");
   if(ttd >= 1) warnings.push("Already traded today → SKIP everything.");
   if(streak >= 3) warnings.push("3-loss streak → pause 48 hours.");
   else if(l3 >= 2) warnings.push("2 losses in last 3 trades → pause 24 hours.");
@@ -356,7 +356,7 @@ function render(view){
       <div class="row" style="margin-top:12px;">
         <a class="btn" href="#sop">SOP</a>
         <a class="btn" href="#decision">Decision</a>
-        <a class="btn btn-danger" href="#panic">PANIC</a>
+        <a class="btn btn-danger" href="#panic">Protect Account</a>
         <a class="btn" href="#log">Log</a>
         <a class="btn" href="#scale">Scale</a>
         <a class="btn" href="#settings">Settings</a>
@@ -448,13 +448,13 @@ function pageDecision(){
         <li>Candle CLOSED back inside OR? If no → <b>SKIP</b></li>
         <li>Strong candle body (not doji)? If no → <b>SKIP</b></li>
         <li>VWAP aligned? If no → <b>SKIP</b></li>
-        <li>PANIC MODE today? If yes → <b>SKIP</b></li>
+        <li>Protect Account mode active today? If yes → <b>SKIP</b></li>
         <li>Already traded today? If yes → <b>SKIP</b></li>
         <li>All yes → <b>TAKE TRADE</b> then stop for the day.</li>
       </ol>
       <div class="row" style="margin-top:12px;">
         <a class="btn" href="#">Home</a>
-        <a class="btn btn-danger" href="#panic">PANIC</a>
+        <a class="btn btn-danger" href="#panic">Protect Account</a>
       </div>
     </div>
   `;
@@ -463,8 +463,8 @@ function pageDecision(){
 function pagePanic(){
   return `
     <div class="card">
-      <h1>🛑 PANIC MODE</h1>
-      <div class="muted">Overrides trading for today.</div>
+      <h1>🛑 Protect Account Mode</h1>
+      <div class="muted">You are deliberately standing down to preserve capital.</div>
       <hr/>
       <h3>Do this now</h3>
       <ul>${CFG.panicProtocol.map(x=>`<li>${x}</li>`).join("")}</ul>
@@ -475,7 +475,7 @@ function pagePanic(){
       <label>One sentence (required)</label>
       <textarea id="panicNote" rows="3" placeholder="I am protecting the account."></textarea>
       <div class="row" style="margin-top:12px;">
-        <button class="btn btn-danger" onclick="setPanic()">Activate Panic Today</button>
+        <button class="btn btn-danger" onclick="setPanic()">Stand Down for Today</button>
         <a class="btn" href="#">Cancel</a>
       </div>
     </div>
@@ -495,7 +495,7 @@ function pageLog(){
   const rows = [...state.log].slice(-100).reverse();
   const items = rows.length ? rows.map(r=>{
     if(r.type==="TRADE") return `<li><b>${r.date} ${r.time}</b> — TRADE ${r.side} — <b>${r.result}</b> — ${r.note||""}</li>`;
-    if(r.type==="PANIC") return `<li><b>${r.date} ${r.time}</b> — <span style="color:#ff8080;font-weight:900;">PANIC</span> — ${r.note||""}</li>`;
+    if(r.type==="PANIC") return `<li><b>${r.date} ${r.time}</b> — <span style="color:#B45353;font-weight:900;">PROTECT ACCOUNT</span> — ${r.note||""}</li>`;
     return `<li>${JSON.stringify(r)}</li>`;
   }).join("") : "<li>No entries yet.</li>";
 
@@ -505,7 +505,7 @@ function pageLog(){
       <div class="row" style="margin-top:12px;">
         <a class="btn" href="#">Home</a>
         <a class="btn" href="#newtrade">New Trade</a>
-        <a class="btn btn-danger" href="#panic">PANIC</a>
+        <a class="btn btn-danger" href="#panic">Protect Account</a>
       </div>
       <hr/>
       <ul>${items}</ul>
