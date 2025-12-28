@@ -1,4 +1,4 @@
-const CACHE = "bankmode-clean-v1"; // bump to force updates
+const CACHE = "bankmode-full-v2"; // bump this to force updates
 
 self.addEventListener("install", (e) => {
   e.waitUntil((async () => {
@@ -39,6 +39,5 @@ self.addEventListener("fetch", (e) => {
     })());
     return;
   }
-
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
