@@ -22,3 +22,17 @@ Required response shape:
 ```json
 { "dateET": "YYYY-MM-DD", "events": [ { "timeET": "08:30", "title": "CPI", "impact": "high" } ] }
 ```
+
+
+## FMP provider (auto high-impact news)
+
+This build uses Financial Modeling Prep (FMP) Economic Calendar and filters HIGH impact events.
+
+1) Get an FMP API key (free plan available): https://site.financialmodelingprep.com/developer/docs
+2) Cloudflare Worker → Settings → Variables → add Secret: `FMP_API_KEY`
+3) Deploy Worker.
+4) In the app: News → API, paste your Worker URL ending with `/today` and tap Sync.
+
+FMP endpoints:
+- Stable: https://financialmodelingprep.com/stable/economic-calendar (docs: https://site.financialmodelingprep.com/developer/docs/stable/economics-calendar)
+- Legacy: https://financialmodelingprep.com/api/v3/economic_calendar (docs: https://site.financialmodelingprep.com/developer/docs/economic-calendar-api)
