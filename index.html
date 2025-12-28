@@ -4,168 +4,103 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Topstep Bank Mode</title>
-  <meta name="theme-color" content="#0b0f14" />
-  <link rel="manifest" href="manifest.webmanifest" />
-<style>
-  :root{
-    --bg: #F6F7F4;
-    --card: #FFFFFF;
-    --text: #1F2933;
-    --muted: #6B7280;
-    --border: #E5E7EB;
-
-    /* Calm finance accent */
-    --accent: #4C7F7A;
-    --accent-2: #3A7CA5;
-
-    /* Status colors (muted, not neon) */
-    --good: #5F8D4E;
-    --danger: #B45353;
-
-    /* Shadows */
-    --shadow: 0 10px 26px rgba(17, 24, 39, 0.08);
-  }
-
-  html, body {
-    height: 100%;
-  }
-
-  body{
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    margin: 14px;
-    line-height: 1.45;
-    background: var(--bg);
-    color: var(--text);
-  }
-
-  h1{
-    font-size: 28px;
-    letter-spacing: -0.02em;
-    margin: 0 0 8px 0;
-  }
-  h2{
-    font-size: 18px;
-    margin: 0 0 10px 0;
-    letter-spacing: -0.01em;
-  }
-  h3{
-    font-size: 15px;
-    margin: 0 0 10px 0;
-  }
-
-  .muted{ color: var(--muted); }
-
-  .card{
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow);
-  }
-
-  .row{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-  }
-
-  .btn{
-    display:inline-block;
-    padding: 12px 14px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: #FFFFFF;
-    color: var(--text);
-    text-decoration:none;
-    font-weight: 800;
-    box-shadow: 0 6px 16px rgba(17,24,39,0.05);
-  }
-
-  .btn:active{
-    transform: translateY(1px);
-  }
-
-  .btn-good{
-    border-color: rgba(95,141,78,0.35);
-    background: rgba(95,141,78,0.10);
-    color: var(--good);
-  }
-
-  .btn-danger{
-    border-color: rgba(180,83,83,0.35);
-    background: rgba(180,83,83,0.10);
-    color: var(--danger);
-  }
-
-  input, select, textarea{
-    width:100%;
-    padding:12px;
-    border-radius:14px;
-    border:1px solid var(--border);
-    background:#FFFFFF;
-    color: var(--text);
-    margin-top:6px;
-    box-sizing:border-box;
-    outline: none;
-  }
-
-  input:focus, select:focus, textarea:focus{
-    border-color: rgba(76,127,122,0.55);
-    box-shadow: 0 0 0 4px rgba(76,127,122,0.12);
-  }
-
-  label{
-    font-weight: 800;
-  }
-
-  hr{
-    border:none;
-    border-top:1px solid var(--border);
-    margin: 12px 0;
-  }
-
-  ul{
-    margin: 8px 0 0 18px;
-  }
-
-  /* Pills now look like calm “status tags” */
-  .pill{
-    display:inline-block;
-    padding: 8px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: #FFFFFF;
-    margin-right: 8px;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-
-  /* Optional emphasis without screaming */
-  b{
-    color: var(--text);
-  }
-
-  .mono{
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.95em;
-    color: var(--muted);
-  }
-
-  /* Make warnings readable but not scary */
-  .card h3 + ul li{
-    margin-bottom: 6px;
-  }
-</style>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#F6F7F4" />
+  <style>
+    :root{
+      --bg: #F6F7F4;
+      --card: #FFFFFF;
+      --text: #1F2933;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --good: #5F8D4E;
+      --danger: #B45353;
+      --shadow: 0 10px 26px rgba(17, 24, 39, 0.08);
+    }
+    html, body { height: 100%; }
+    body{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 14px;
+      line-height: 1.45;
+      background: var(--bg);
+      color: var(--text);
+    }
+    h1{ font-size: 28px; letter-spacing: -0.02em; margin: 0 0 8px 0; }
+    h2{ font-size: 18px; margin: 0 0 10px 0; letter-spacing: -0.01em; }
+    h3{ font-size: 15px; margin: 0 0 10px 0; }
+    .muted{ color: var(--muted); }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .btn{
+      display:inline-block;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #FFFFFF;
+      color: var(--text);
+      text-decoration:none;
+      font-weight: 800;
+      box-shadow: 0 6px 16px rgba(17,24,39,0.05);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-good{
+      border-color: rgba(95,141,78,0.35);
+      background: rgba(95,141,78,0.10);
+      color: var(--good);
+    }
+    .btn-danger{
+      border-color: rgba(180,83,83,0.35);
+      background: rgba(180,83,83,0.10);
+      color: var(--danger);
+    }
+    input, select, textarea{
+      width:100%;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#FFFFFF;
+      color: var(--text);
+      margin-top:6px;
+      box-sizing:border-box;
+      outline: none;
+    }
+    label{ font-weight: 800; }
+    hr{ border:none; border-top:1px solid var(--border); margin: 12px 0; }
+    ul{ margin: 8px 0 0 18px; }
+    .pill{
+      display:inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #FFFFFF;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
-  <script src="app.js"></script>
+
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(()=>{});
+      });
     }
   </script>
+  <script src="./app.js"></script>
 </body>
 </html>
