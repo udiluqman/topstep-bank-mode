@@ -191,43 +191,68 @@ function weekPnL(){
 // ============================
 // New York time helpers (DST-safe)
 // ============================
-function nextETOccurrence(hourET, minuteET){
-  const tz = "America/New_York";
+const ET_TZ = "America/New_York";
+
+function weekdayInET(date){
+  const wfmt = new Intl.DateTimeFormat("en-US",{timeZone:ET_TZ, weekday:"short"});
+  const w = wfmt.format(date);
+  return ({Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6})[w] ?? date.getDay();
+}
+function isETWeekday(date){
+  const wd = weekdayInET(date);
+  return wd !== 0 && wd !== 6;
+}
+
+// Convert an ET date/time to a real instant (iterative, DST-safe)
+function etToInstant(y,m,d,h,min){
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit",
+    timeZone: ET_TZ, year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+  });
+  let guess = new Date(Date.UTC(y, m-1, d, h, min, 0));
+  for(let i=0;i<6;i++){
+    const p = Object.fromEntries(fmt.formatToParts(guess).map(p=>[p.type,p.value]));
+    const gy=parseInt(p.year,10), gm=parseInt(p.month,10), gd=parseInt(p.day,10);
+    const gh=parseInt(p.hour,10), gmin=parseInt(p.minute,10);
+    const diff = (y-gy)*525600 + (m-gm)*43200 + (d-gd)*1440 + (h-gh)*60 + (min-gmin);
+    guess = new Date(guess.getTime() + diff*60000);
+    if(diff===0) break;
+  }
+  return guess;
+}
+
+// Next occurrence for an ET clock time, but ONLY on ET weekdays (Mon–Fri)
+function nextETOccurrence(hourET, minuteET){
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: ET_TZ, year:"numeric", month:"2-digit", day:"2-digit",
     hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
   });
 
   const now = new Date();
   const parts = Object.fromEntries(fmt.formatToParts(now).map(p=>[p.type,p.value]));
-  const etY = parseInt(parts.year,10);
-  const etM = parseInt(parts.month,10);
-  const etD = parseInt(parts.day,10);
+  let y = parseInt(parts.year,10);
+  let m = parseInt(parts.month,10);
+  let d = parseInt(parts.day,10);
 
-  function etToInstant(y,m,d,h,min){
-    let guess = new Date(Date.UTC(y, m-1, d, h, min, 0));
-    for(let i=0;i<6;i++){
-      const p = Object.fromEntries(fmt.formatToParts(guess).map(p=>[p.type,p.value]));
-      const gy=parseInt(p.year,10), gm=parseInt(p.month,10), gd=parseInt(p.day,10);
-      const gh=parseInt(p.hour,10), gmin=parseInt(p.minute,10);
-      const diff = (y-gy)*525600 + (m-gm)*43200 + (d-gd)*1440 + (h-gh)*60 + (min-gmin);
-      guess = new Date(guess.getTime() + diff*60000);
-      if(diff===0) break;
-    }
-    return guess;
+  let candidate = etToInstant(y,m,d,hourET,minuteET);
+
+  function advanceOneDayET(){
+    const next = new Date(candidate.getTime() + 24*60*60000);
+    const p2 = Object.fromEntries(fmt.formatToParts(next).map(p=>[p.type,p.value]));
+    y = parseInt(p2.year,10); m = parseInt(p2.month,10); d = parseInt(p2.day,10);
+    candidate = etToInstant(y,m,d,hourET,minuteET);
   }
 
-  let candidate = etToInstant(etY, etM, etD, hourET, minuteET);
-  if(candidate.getTime() <= now.getTime()){
-    candidate = new Date(candidate.getTime() + 24*60*60000);
+  while(candidate.getTime() <= now.getTime() || !isETWeekday(candidate)){
+    advanceOneDayET();
+    if((candidate.getTime()-now.getTime()) > 14*24*60*60000) break;
   }
   return candidate;
 }
 
-function nowInTradeWindowET(){
-  const tz = "America/New_York";
+function nowInTradeWindowET(function nowInTradeWindowET(){
   const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit",
+    timeZone: ET_TZ, year:"numeric", month:"2-digit", day:"2-digit",
     hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
   });
   const now = new Date();
@@ -236,23 +261,12 @@ function nowInTradeWindowET(){
   const m = parseInt(parts.month,10);
   const d = parseInt(parts.day,10);
 
-  function etToInstant(y,m,d,h,min){
-    let guess = new Date(Date.UTC(y, m-1, d, h, min, 0));
-    for(let i=0;i<6;i++){
-      const p = Object.fromEntries(fmt.formatToParts(guess).map(p=>[p.type,p.value]));
-      const gy=parseInt(p.year,10), gm=parseInt(p.month,10), gd=parseInt(p.day,10);
-      const gh=parseInt(p.hour,10), gmin=parseInt(p.minute,10);
-      const diff = (y-gy)*525600 + (m-gm)*43200 + (d-gd)*1440 + (h-gh)*60 + (min-gmin);
-      guess = new Date(guess.getTime() + diff*60000);
-      if(diff===0) break;
-    }
-    return guess;
-  }
-
   const startToday = etToInstant(y,m,d,9,45);
   const stopToday  = etToInstant(y,m,d,10,30);
-  return { inWindow: now >= startToday && now <= stopToday, startToday, stopToday };
+
+  return { inWindow: (now >= startToday && now <= stopToday) && isETWeekday(now), startToday, stopToday, isWeekday: isETWeekday(now) };
 }
+
 
 // ============================
 // Decision Engine (interactive)
@@ -260,7 +274,8 @@ function nowInTradeWindowET(){
 function decisionApproved(){
   const ttd = tradesTodayCount();
   const protectToday = state.protect.active && state.protect.date === todayStr();
-  const w = nowInTradeWindowET().inWindow;
+  const win = nowInTradeWindowET();
+  const weekendLockout = !win.isWeekday;
 
   const pre = state.meta.pre || {};
   const required = [
@@ -272,7 +287,8 @@ function decisionApproved(){
     pre.calm === true
   ];
   const preOk = required.every(Boolean);
-  return { preOk, approved: preOk && !protectToday && ttd < 1 && w, protectToday, ttd, inWindow:w };
+
+  return { preOk, approved: preOk && !protectToday && ttd < 1 && win.inWindow && !weekendLockout, protectToday, ttd, inWindow: win.inWindow, weekendLockout };
 }
 
 function setPre(key,val){
@@ -284,6 +300,21 @@ function setPre(key,val){
   if(d.preOk) celebrate("Pre-approved ✅");
   render(route());
 }
+function safeToggleExec(key){
+  const d = decisionApproved();
+  if(!d.approved){
+    const msg = d.weekendLockout ? "Weekend lockout (RTH closed)" : (d.inWindow ? "Blocked today" : "Outside trade window" );
+    toast("Can't tap: " + msg);
+    return;
+  }
+  state.meta.exec = state.meta.exec || { closedInsideOR:false, cleanBody:false };
+  state.meta.exec[key] = !state.meta.exec[key];
+  saveState();
+  const d2 = decisionApproved();
+  if(d2.approved && state.meta.exec.closedInsideOR && state.meta.exec.cleanBody) celebrate("Execute ✅");
+  render(route());
+}
+
 function setExec(key,val){
   state.meta.exec = state.meta.exec || {};
   state.meta.exec[key] = val;
@@ -507,6 +538,11 @@ function render(view){
 
   const warnCard = warnings.length ? `<div class="card"><h3>Caution</h3><ul>${warnings.map(w=>`<li>${w}</li>`).join("")}</ul></div>` : "";
 
+  const win = nowInTradeWindowET();
+  const weekendCard = (!win.isWeekday)
+    ? `<div class="card"><h3>Weekend lockout</h3><div class="muted"><b>RTH is closed</b> in New York. This app is <b>RTH weekdays only</b> (Mon–Fri). No trades today.</div></div>`
+    : "";
+
   const b = CFG.bracket;
   const nextTimes = CFG.remindersET.map(r=>{
     const dt = nextETOccurrence(r.hour, r.minute);
@@ -548,6 +584,8 @@ function render(view){
       </div>
     </div>
 
+    ${weekendCard}
+
     ${warnCard}
 
     <div class="card">
@@ -574,8 +612,8 @@ function render(view){
     </div>
 
     <div class="card">
-      <h2>Reminders (auto DST-adjusted)</h2>
-      <div class="muted">Anchored to <span class="mono">America/New_York</span> so seasonal shifts are automatic.</div>
+      <h2>Reminders (RTH weekdays only)</h2>
+      <div class="muted">Anchored to <span class="mono">America/New_York</span> so seasonal shifts are automatic (Mon–Fri only).</div>
       <hr/>
       <h3>Next reminder times (your phone time)</h3>
       <ul>${nextTimes}</ul>
@@ -650,11 +688,16 @@ function pageDecision(){
   const win = nowInTradeWindowET();
   const d = decisionApproved();
 
+  const weekendLine = d.weekendLockout
+    ? `<div class="pill" style="border-color:rgba(180,83,83,.35);background:rgba(180,83,83,.10);color:#B45353;"><b>⛔ WEEKEND</b> — RTH closed in New York (no trades)</div>`
+    : "";
+
   const verdict = d.approved
     ? `<div class="pill" style="border-color:rgba(95,141,78,.35);background:rgba(95,141,78,.10);color:#5F8D4E;"><b>✅ APPROVED</b> — alert = execute</div>`
     : `<div class="pill" style="border-color:rgba(180,83,83,.35);background:rgba(180,83,83,.10);color:#B45353;"><b>⛔ NO TRADE</b> — protect the account</div>`;
 
   const blockers = [];
+  if(d.weekendLockout) blockers.push("Weekend (RTH closed)");
   if(d.protectToday) blockers.push("Protect Account active today");
   if(d.ttd>=1) blockers.push("Already traded today");
   if(!d.inWindow) blockers.push("Outside trade window");
@@ -666,7 +709,9 @@ function pageDecision(){
       <div class="muted">Decide slowly now, execute instantly later.</div>
       <hr/>
       <div class="muted">Trade window (ET): <b>09:45–10:30</b> · Your time: <b>${win.startToday.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}–${win.stopToday.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</b> · Now: <b>${win.inWindow ? "IN WINDOW" : "OUTSIDE"}</b></div>
+      ${weekendLine}
       <div style="margin-top:10px;">${verdict}</div>
+      ${tradeOkBanner}
       <div style="margin-top:6px;">${blockerLine}</div>
     </div>
 
@@ -695,6 +740,18 @@ function pageExecute(){
   const ex = state.meta.exec;
   const d = decisionApproved();
   const canExecute = d.approved;
+  const tradeOk = canExecute && ex.closedInsideOR && ex.cleanBody;
+  const tradeOkBanner = tradeOk
+    ? `<div class="card" style="border-color:rgba(95,141,78,.45);background:rgba(95,141,78,.10);">
+         <h2 style="margin:0;color:var(--good);">✅ TRADE OK</h2>
+         <div class="muted">Inside window • Not blocked • Both checks confirmed. Execute your bracket.</div>
+       </div>`
+    : (canExecute
+        ? `<div class="card" style="border-color:rgba(76,127,122,.35);background:rgba(76,127,122,.08);">
+             <h3 style="margin:0;color:var(--accent);">Ready</h3>
+             <div class="muted">Tap the two checks below. When both are ON, you’ll get a green TRADE OK.</div>
+           </div>`
+        : "");
 
   const verdict = !canExecute
     ? `<div class="pill" style="border-color:rgba(180,83,83,.35);background:rgba(180,83,83,.10);color:#B45353;"><b>⛔ DO NOT TRADE</b> — blocked today</div>`
@@ -705,16 +762,16 @@ function pageExecute(){
   return `
     <div class="card">
       <h1>Execute (Alert Fired)</h1>
-      <div class="muted">Two taps. If both true → enter. If you missed entry → skip (no chase).</div>
+      <div class="muted">Two taps. If both true → enter. If blocked, taps will show why. If you missed entry → skip (no chase).</div>
       <hr/>
       ${verdict}
       <hr/>
       <h3>Fast checks</h3>
       <div class="row" style="margin-top:10px;">
-        <button class="btn ${ex.closedInsideOR?'btn-good':''}" onclick="setExec('closedInsideOR', ${!ex.closedInsideOR})" ${!canExecute?'disabled':''}>
+        <button class="btn ${ex.closedInsideOR?'btn-good':''}" onclick="safeToggleExec('closedInsideOR')">
           ${ex.closedInsideOR ? "✓" : "○"} Closed back inside OR
         </button>
-        <button class="btn ${ex.cleanBody?'btn-good':''}" onclick="setExec('cleanBody', ${!ex.cleanBody})" ${!canExecute?'disabled':''}>
+        <button class="btn ${ex.cleanBody?'btn-good':''}" onclick="safeToggleExec('cleanBody')">
           ${ex.cleanBody ? "✓" : "○"} Clean body (not doji)
         </button>
       </div>
